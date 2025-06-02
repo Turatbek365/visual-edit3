@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Визуальный Редактор</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      display: flex;
+      height: 100vh;
+    }
+    .sidebar {
+      width: 220px;
+      background: #1f1f1f;
+      color: white;
+      padding: 15px;
+    }
+    .sidebar button {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 10px;
+      background: #3f3f3f;
+      border: none;
+      color: white;
+      cursor: pointer;
+    }
+    .main {
+      flex: 1;
+      background: #f1f1f1;
+      padding: 20px;
+      overflow-y: auto;
+      position: relative;
+    }
+    .element {
+      border: 1px dashed #aaa;
+      padding: 10px;
+      margin-bottom: 10px;
+      background: white;
+      cursor: move;
+    }
+    .editor-panel {
+      padding: 10px;
+      background: #e3e3e3;
+      border-top: 1px solid #ccc;
+    }
+    .editor-panel label {
+      display: block;
+      margin-top: 5px;
+    }
+    .selected {
+      outline: 2px solid blue;
+    }
+  </style>
+</head>
+<body>
+
+<div class="sidebar">
+  <button onclick="addElement('h1')">Заголовок</button>
+  <button onclick="addElement('p')">Текст</button>
+  <button onclick="addImage()">Картинка из URL</button>
+  <button onclick="addButton()">Кнопка</button>
+  <button onclick="saveSite()">💾 Сохранить</button>
+</div>
+
+<div class="main" id="editor"></div>
+
+<script>
+  let selectedEl = null;
+
+  function addElement(tag) {
+    const el = document.createElement(tag);
+    el.contentEditable = true;
+    el.className = 'element';
+    el.draggable = true;
+    el.innerText = tag === 'h1' ? 'Заголовок' : 'Текст';
+    setElementEvents(el);
+    document.getElementById('editor').appendChild(el);
+    saveSite();
+  }
+
+  function addImage() {
+    const url = prompt('Ссылка на изображение:');
+    if (!url) return;
+    const img = document.createElement('img');
+    img.src = url;
+    img.className = 'element';
+    img.style.maxWidth = '100%';
+    setElementEvents(img);
+    document.getElementById('editor').appendChild(img);
+    saveSite();
+  }
+
+  function addButton() {
+    const btn = document.createElement('button');
+    btn.innerText = 'Нажми меня';
+    btn.className = 'element';
+    btn.onclick = () => alert('Кнопка нажата!');
+    setElementEvents(btn);
+    document.getElementById('editor').appendChild(btn);
+    saveSite();
+  }
+
+  function setElementEvents(el) {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      selectElement(el);
+    });
+
+    el.addEventListener('dblclick', () => {
+      if (confirm('Удалить элемент?')) {
+        el.remove();
+        selectedEl = null;
+        removePanel();
+        saveSite();
+      }
+    });
+
+    el.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('text/plain', null);
+      draggedEl = el;
+    });
+
+    el.addEventListener('dragover', e => e.preventDefault());
+
+    el.addEventListener('drop', e => {
+      e.preventDefault();
+      if (draggedEl !== el) {
+        const editor = document.getElementById('editor');
+        editor.insertBefore(draggedEl, el);
+        saveSite();
+      }
+    });
+  }
+
+  function selectElement(el) {
+    if (selectedEl) selectedEl.classList.remove('selected');
+    selectedEl = el;
+    el.classList.add('selected');
+    showEditPanel(el);
+  }
+
+  function removePanel() {
+    const existing = document.querySelector('.editor-panel');
+    if (existing) existing.remove();
+  }
+
+  function showEditPanel(el) {
+    removePanel();
+    const panel = document.createElement('div');
+    panel.className = 'editor-panel';
+
+    panel.innerHTML = `
+      <label>Цвет текста: <input type="color" value="${getComputedStyle(el).color}" onchange="selectedEl.style.color = this.value; saveSite()"></label>
+      <label>Фон: <input type="color" value="${rgbToHex(getComputedStyle(el).backgroundColor)}" onchange="selectedEl.style.backgroundColor = this.value; saveSite()"></label>
+      <label>Размер шрифта: <input type="number" min="10" max="100" value="${parseInt(getComputedStyle(el).fontSize)}" onchange="selectedEl.style.fontSize = this.value + 'px'; saveSite()"></label>
+    `;
+
+    document.body.appendChild(panel);
+  }
+
+  function rgbToHex(rgb) {
+    const result = rgb.match(/\d+/g).map(x => parseInt(x).toString(16).padStart(2, '0'));
+    return `#${result.join('')}`;
+  }
+
+  function saveSite() {
+    localStorage.setItem('mySite', document.getElementById('editor').innerHTML);
+  }
+
+  function loadSite() {
+    const content = localStorage.getItem('mySite');
+    if (content) {
+      document.getElementById('editor').innerHTML = content;
+      [...document.querySelectorAll('.element')].forEach(setElementEvents);
+    }
+  }
+
+  document.body.addEventListener('click', () => {
+    if (selectedEl) selectedEl.classList.remove('selected');
+    selectedEl = null;
+    removePanel();
+  });
+
+  let draggedEl = null;
+  window.onload = loadSite;
+</script>
+
+</body>
+</html>
